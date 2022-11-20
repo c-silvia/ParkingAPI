@@ -11,8 +11,6 @@ from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFoun
 DB_NAME = "parking_app"
 
 
-# Need to close the db?? - already closing cursor
-
 def _connect_to_db():
     cnx = mysql.connector.connect(
         host=os.getenv('DATABASE_HOST'),

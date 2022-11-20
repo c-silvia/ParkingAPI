@@ -1,6 +1,6 @@
 from flask import Flask, request, redirect, url_for, session, make_response
-from datetime import datetime, timedelta
-import json, os, atexit, re
+from datetime import timedelta
+import json, os, atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_bcrypt import Bcrypt
 from db import *  # update
@@ -25,6 +25,7 @@ scheduler.add_job(func=parking_expiration_checker, trigger="interval", seconds=6
 scheduler.start()
 
 atexit.register(lambda: scheduler.shutdown())
+
 
 # login_manager = LoginManager()
 # login_manager.init_app(app)
@@ -76,7 +77,6 @@ def create_user():
                "one lowercase letter, one number and one special character.", 400  # Bad request
 
 
-# check if data is correct
 # if logged in don't do it again
 @app.route('/log-in', methods=["GET", "POST"])
 def log_in():
@@ -93,6 +93,8 @@ def log_in():
             # response.set_cookie("LoginCookie", username, secure=True, httponly=True)
             # return response  # OK
             return "Successfully logged in.", 200
+    except KeyError:
+        return "Missing data.", 404  # Not found
     except UserNotFound:  # expand
         return "User not found.", 404  # Not found
     except ValueError:
@@ -110,13 +112,13 @@ def log_out():
     return "Successfully logged out.", 200  # OK
 
 
-# change to Json
-@app.route('/search-license-plate/<license_plate>', methods=["GET"])
+@app.route('/search-license-plate', methods=["POST"])
 @check_session
-def search_license_plate(license_plate):
+def search_license_plate():
+    incoming_data = request.get_json()
     db_data = DBData()
     try:
-        parking_spot = db_data.get_spot_from_plate(license_plate)
+        parking_spot = db_data.get_spot_from_plate(incoming_data["license_plate"])
         return parking_spot, 200  # OK
     except InvalidPlateNumber:
         return "This is not a valid license plate number.", 400  # Bad Request
@@ -156,7 +158,6 @@ def retrieve_unavailable_spots_and_plates():
         return unavailable_spots_and_plates, 200  # OK
     except AllSpotsAvailable:
         return "All parking spots are currently available", 404  # Not found
-        # redirect to park?
 
 
 # check if single spot is available
@@ -198,7 +199,7 @@ def park_car():
 
 @app.route('/leave-parking-spot', methods=["POST"])
 @check_session
-def free_up_spot():
+def leave_parking_spot():
     incoming_data = request.get_json()
     db_data = DBData()
     try:
