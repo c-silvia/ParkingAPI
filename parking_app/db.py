@@ -1,7 +1,7 @@
-import os, mysql.connector
+import os, mysql.connector, math
 from mysql.connector import IntegrityError
 from re import compile
-import math
+from datetime import datetime
 
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
     InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, DbConnectionError, UserNotFound, NotLoggedIn, \
@@ -127,7 +127,6 @@ class DBData(DBClient):
             pass
         return rounded_length_of_stay
 
-    # recursion?
     def get_vacant_spots(self):
         with self.cnx.cursor() as cursor:
             query = "SELECT spot_id FROM parking_spot_data WHERE vehicle_number IS NULL ORDER BY spot_id;"
@@ -151,7 +150,6 @@ class DBData(DBClient):
                 raise InvalidPlateNumber
             raise LicensePlateNotFound
 
-    # Handle if all spots are available: recursion?
     def get_unavailable_spots_and_plates(self):
         with self.cnx.cursor() as cursor:
             query = "SELECT spot_id, vehicle_number FROM parking_spot_data WHERE vehicle_number IS NOT NULL " \
@@ -162,15 +160,6 @@ class DBData(DBClient):
                 return unavailable_spots_and_plates
             raise AllSpotsAvailable
 
-    def store_parking_time(self, license_plate, arrival_time, length_of_stay, departure_time, spot_id, has_left):
-        with self.cnx.cursor() as cursor:
-            query = "INSERT INTO parked_vehicles_data (vehicle_number, vehicle_arrival_time, selected_length_of_stay, " \
-                    "vehicle_departure_time, spot_id, has_left) VALUES (%s, %s, %s, %s, %s, %s); "
-            self._insertion_query(cursor, query, [license_plate, arrival_time.strftime("%Y-%m-%d %H:%M:%S"),
-                                                  length_of_stay, departure_time.strftime("%Y-%m-%d %H:%M:%S"), spot_id,
-                                                  int(has_left)])
-            self.cnx.commit()
-
     def park_car(self, parking_spot, license_plate):
         with self.cnx.cursor() as cursor:
             query = "UPDATE parking_spot_data SET vehicle_number = %s WHERE spot_id = %s;"
@@ -178,17 +167,43 @@ class DBData(DBClient):
             self.cnx.commit()
             # returning spot where car has been parked in endpoint
 
+    def store_parking_time(self, license_plate, arrival_time, length_of_stay, expected_departure_time, spot_id,
+                           has_left, actual_departure_time, has_expired):
+        with self.cnx.cursor() as cursor:
+            query = "INSERT INTO parked_vehicles_data (spot_id, vehicle_number, arrival_time, " \
+                    "selected_length_of_stay, expected_departure_time, has_left, actual_departure_time, has_expired) " \
+                    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
+            incoming_data = [spot_id, license_plate, arrival_time.strftime("%Y-%m-%d %H:%M:%S"), length_of_stay,
+                             expected_departure_time.strftime("%Y-%m-%d %H:%M:%S"), int(has_left),
+                             actual_departure_time.strftime("%Y-%m-%d %H:%M:%S"), int(has_expired)]
+            self._insertion_query(cursor, query, incoming_data)
+            self.cnx.commit()
+
     def leave_parking_spot(self, license_plate):
         with self.cnx.cursor() as cursor:
             if not self._check_if_license_plate_valid(license_plate):
                 raise InvalidPlateNumber
             parking_spot = self.get_spot_from_plate(license_plate)
             update_parking_spot_data_query = "UPDATE parking_spot_data SET vehicle_number = NULL WHERE spot_id = %s;"
-            update_parked_vehicles_data_query = "UPDATE parked_vehicles_data SET has_left = 1 WHERE vehicle_number = " \
-                                                "%s; "
+            update_parked_vehicles_data_query = "UPDATE parked_vehicles_data SET has_left = 1, has_expired = 1 WHERE " \
+                                                "vehicle_number = %s;"
             self._insertion_query(cursor, update_parking_spot_data_query, filter_values=[parking_spot])
             self._insertion_query(cursor, update_parked_vehicles_data_query, filter_values=[license_plate])
             self.cnx.commit()
+
+    def get_next_available_spot(self):
+        with self.cnx.cursor() as cursor:
+            query = "SELECT spot_id, expected_departure_time FROM parked_vehicles_data WHERE has_left = 0;"
+            matches = self._selection_query(cursor, query)
+            if matches:
+                spots_and_departure_times = {pair[0]: pair[1] for pair in matches}
+                now = datetime.now()
+                next_available_spot = min(list(spots_and_departure_times.items()), key=lambda x: abs(x[1] - now))[0]
+            else:
+                next_available_spot = self.get_vacant_spots()[0]
+            return next_available_spot  # fix syntax
+
+
 
 # def store_news_articles(news_articles_list):
 #     db_name = DB_NAME

@@ -164,12 +164,14 @@ def park_car():
         license_plate = incoming_data["license_plate"]
         length_of_stay = incoming_data["length_of_stay"]
         round_length_of_stay = db_data.check_incoming_values_before_parking(parking_spot, license_plate, length_of_stay)
+        # make function
         arrival_time = datetime.now()
         length_of_stay_hours, length_of_stay_minutes = round_length_of_stay.split(".")
         selected_length_of_stay = timedelta(hours=int(length_of_stay_hours), minutes=int(length_of_stay_minutes))
         departure_time = arrival_time + selected_length_of_stay
         db_data.park_car(parking_spot, license_plate)
-        db_data.store_parking_time(license_plate, arrival_time, round_length_of_stay, departure_time, parking_spot, 0)
+        db_data.store_parking_time(license_plate, arrival_time, round_length_of_stay, departure_time, parking_spot, 0,
+                                   None, 0)
         confirmed_spot = db_data.get_spot_from_plate(incoming_data["license_plate"])
         return confirmed_spot
     except KeyError:
@@ -201,6 +203,14 @@ def free_up_spot():
     except LicensePlateNotFound:
         return "There are no vehicles with this license plate number currently parked in the parking lot.", 404
         # Not found
+
+
+@app.route('/next-available-spot', methods=["GET"])
+@check_session
+def check_next_available_spot():
+    db_data = DBData()
+    db_data.get_next_available_spot()
+    return db_data.get_next_available_spot(), 200  # OK
 
 
 if __name__ == '__main__':
