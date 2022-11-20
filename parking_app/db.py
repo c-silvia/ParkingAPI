@@ -1,10 +1,11 @@
 import os, mysql.connector
 from mysql.connector import IntegrityError
 from re import compile
+import math
 
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
     InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, DbConnectionError, UserNotFound, NotLoggedIn, \
-    IncorrectPassword
+    IncorrectPassword, InvalidLengthOfStay, TooLong
 
 DB_NAME = "parking_app"
 
@@ -77,7 +78,7 @@ class DBData(DBClient):
 
     def _check_if_spot_exists(self, parking_spot):
         with self.cnx.cursor() as cursor:
-            query = "SELECT EXISTS(SELECT * from parking_spot_status WHERE spot_id = %s);"
+            query = "SELECT EXISTS(SELECT * from parking_spot_data WHERE spot_id = %s);"
             matches = self._selection_query(cursor, query, [parking_spot])
             spot = "".join(
                 [str(parking_spot) for parking_spot in list(sum(matches, ())) if parking_spot != 0])  # fix syntax
@@ -85,21 +86,54 @@ class DBData(DBClient):
 
     def _check_if_spot_available(self, parking_spot):
         with self.cnx.cursor() as cursor:
-            query = "SELECT vehicle_number FROM parking_spot_status WHERE spot_id = %s;"
+            query = "SELECT vehicle_number FROM parking_spot_data WHERE spot_id = %s;"
             matches = self._selection_query(cursor, query, [parking_spot])
             spot = "".join(
                 [parking_spot for parking_spot in list(sum(matches, ())) if parking_spot is not None])  # fix syntax
             return True if not spot else False
 
-    # new function to check if length of stay is valid
+    @staticmethod
+    def _check_if_length_of_stay_valid(length_of_stay):
+        length_of_stay_format = compile(r'^\d{1,4}\.\d{2}$')
+        return False if not length_of_stay_format.match(length_of_stay) else True
+
+    @staticmethod
+    def _round_up_length_of_stay(length_of_stay):
+        if length_of_stay[-1] != 0:
+            rounded_up_length_of_stay = math.ceil(float(length_of_stay) * 10) / 10
+            return str(rounded_up_length_of_stay)
+        return length_of_stay
+
+    @staticmethod
+    def _check_if_length_of_stay_over_a_year(length_of_stay):
+        return False if float(length_of_stay) > 8765.80 else True  # n of hours in a year
+
+    def check_incoming_values_before_parking(self, spot, plate, length_of_stay):
+        if not self._check_if_length_of_stay_valid(length_of_stay):
+            raise InvalidLengthOfStay
+        rounded_length_of_stay = self._round_up_length_of_stay(length_of_stay)
+        if not self._check_if_length_of_stay_over_a_year(rounded_length_of_stay):
+            raise TooLong
+        elif not self._check_if_spot_exists(spot):
+            raise InvalidSpotNumber
+        elif not self._check_if_spot_available(spot):
+            raise SpotNotAvailable
+        elif not self._check_if_license_plate_valid(plate):
+            raise InvalidPlateNumber
+        try:
+            self.get_spot_from_plate(plate)
+            raise VehicleAlreadyInOtherSpot
+        except LicensePlateNotFound:
+            pass
+        return rounded_length_of_stay
 
     # recursion?
     def get_vacant_spots(self):
         with self.cnx.cursor() as cursor:
-            query = "SELECT spot_id FROM parking_spot_status WHERE vehicle_number IS NULL ORDER BY spot_id;"
+            query = "SELECT spot_id FROM parking_spot_data WHERE vehicle_number IS NULL ORDER BY spot_id;"
             matches = self._selection_query(cursor, query)
             if matches:
-                vacant_spots = list(sum(matches, ())) # fix syntax
+                vacant_spots = list(sum(matches, ()))  # fix syntax
                 return vacant_spots
             raise NoSpotsAvailable
 
@@ -109,7 +143,7 @@ class DBData(DBClient):
 
     def get_spot_from_plate(self, license_plate):
         with self.cnx.cursor() as cursor:
-            query = "SELECT spot_id FROM parking_spot_status WHERE vehicle_number = %s;"
+            query = "SELECT spot_id FROM parking_spot_data WHERE vehicle_number = %s;"
             matches = self._selection_query(cursor, query, [license_plate])
             if matches:
                 return "".join([parking_spot for parking_spot in list(sum(matches, ()))])  # fix syntax
@@ -120,7 +154,7 @@ class DBData(DBClient):
     # Handle if all spots are available: recursion?
     def get_unavailable_spots_and_plates(self):
         with self.cnx.cursor() as cursor:
-            query = "SELECT spot_id, vehicle_number FROM parking_spot_status WHERE vehicle_number IS NOT NULL " \
+            query = "SELECT spot_id, vehicle_number FROM parking_spot_data WHERE vehicle_number IS NOT NULL " \
                     "ORDER BY spot_id;"
             matches = self._selection_query(cursor, query)
             if matches:
@@ -128,46 +162,33 @@ class DBData(DBClient):
                 return unavailable_spots_and_plates
             raise AllSpotsAvailable
 
-    # Handle edge cases
-    def store_parking_time(self, license_plate, arrival_time, length_of_stay, departure_time):
+    def store_parking_time(self, license_plate, arrival_time, length_of_stay, departure_time, spot_id, has_left):
         with self.cnx.cursor() as cursor:
-            query = "INSERT INTO vehicle_permanence (vehicle_number, vehicle_arrival_time, selected_length_of_stay, " \
-                    "vehicle_departure_time) VALUES (%s, %s, %s %s); "
-            self._insertion_query(cursor, query, [license_plate, arrival_time, length_of_stay, departure_time])
+            query = "INSERT INTO parked_vehicles_data (vehicle_number, vehicle_arrival_time, selected_length_of_stay, " \
+                    "vehicle_departure_time, spot_id, has_left) VALUES (%s, %s, %s, %s, %s, %s); "
+            self._insertion_query(cursor, query, [license_plate, arrival_time.strftime("%Y-%m-%d %H:%M:%S"),
+                                                  length_of_stay, departure_time.strftime("%Y-%m-%d %H:%M:%S"), spot_id,
+                                                  int(has_left)])
             self.cnx.commit()
 
-    # rollback code?
-    # recursion?
-    # extend to include datetime
     def park_car(self, parking_spot, license_plate):
         with self.cnx.cursor() as cursor:
-            if not self._check_if_spot_exists(parking_spot):
-                raise InvalidSpotNumber
-            elif not self._check_if_spot_available(parking_spot):
-                raise SpotNotAvailable
-            elif not self._check_if_license_plate_valid(license_plate):
-                raise InvalidPlateNumber
-            try:
-                self.get_spot_from_plate(license_plate)
-                raise VehicleAlreadyInOtherSpot
-            except LicensePlateNotFound:
-                pass
-            query = "UPDATE parking_spot_status SET vehicle_number = %s WHERE spot_id = %s;"
+            query = "UPDATE parking_spot_data SET vehicle_number = %s WHERE spot_id = %s;"
             self._insertion_query(cursor, query, [license_plate], [parking_spot])
             self.cnx.commit()
             # returning spot where car has been parked in endpoint
 
-    # recursion?
-    # extend to include datetime
     def leave_parking_spot(self, license_plate):
         with self.cnx.cursor() as cursor:
             if not self._check_if_license_plate_valid(license_plate):
                 raise InvalidPlateNumber
             parking_spot = self.get_spot_from_plate(license_plate)
-            query = "UPDATE parking_spot_status SET vehicle_number = NULL WHERE spot_id = %s"
-            self._insertion_query(cursor, query, filter_values=[parking_spot])
+            update_parking_spot_data_query = "UPDATE parking_spot_data SET vehicle_number = NULL WHERE spot_id = %s;"
+            update_parked_vehicles_data_query = "UPDATE parked_vehicles_data SET has_left = 1 WHERE vehicle_number = " \
+                                                "%s; "
+            self._insertion_query(cursor, update_parking_spot_data_query, filter_values=[parking_spot])
+            self._insertion_query(cursor, update_parked_vehicles_data_query, filter_values=[license_plate])
             self.cnx.commit()
-
 
 # def store_news_articles(news_articles_list):
 #     db_name = DB_NAME

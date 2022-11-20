@@ -1,16 +1,20 @@
 from flask import Flask, request, redirect, url_for, session, make_response
 from flask_login import LoginManager
+from datetime import datetime, timedelta
+from re import compile
 import json, os
 from flask_bcrypt import Bcrypt
-from db import *
-from auth import *
+from db import *  # update
+from auth import *  # update
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
-    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, NotLoggedIn, IncorrectPassword
+    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, NotLoggedIn, IncorrectPassword, \
+    InvalidLengthOfStay, TooLong
 
 app = Flask(__name__)
 
 bcrypt = Bcrypt(app)
 app.secret_key = os.getenv("SECRET_KEY")
+
 
 # login_manager = LoginManager()
 # login_manager.init_app(app)
@@ -150,18 +154,26 @@ def retrieve_unavailable_spots_and_plates():
 
 
 # check if single spot is available
-# extend to include
 @app.route('/park-car', methods=["POST"])
 @check_session
 def park_car():
     incoming_data = request.get_json()
     db_data = DBData()
     try:
-        db_data.park_car(incoming_data["parking_spot"], incoming_data["license_plate"])
-        # add new method
+        parking_spot = incoming_data["parking_spot"]
+        license_plate = incoming_data["license_plate"]
+        length_of_stay = incoming_data["length_of_stay"]
+        round_length_of_stay = db_data.check_incoming_values_before_parking(parking_spot, license_plate, length_of_stay)
+        arrival_time = datetime.now()
+        length_of_stay_hours, length_of_stay_minutes = round_length_of_stay.split(".")
+        selected_length_of_stay = timedelta(hours=int(length_of_stay_hours), minutes=int(length_of_stay_minutes))
+        departure_time = arrival_time + selected_length_of_stay
+        db_data.park_car(parking_spot, license_plate)
+        db_data.store_parking_time(license_plate, arrival_time, round_length_of_stay, departure_time, parking_spot, 0)
         confirmed_spot = db_data.get_spot_from_plate(incoming_data["license_plate"])
         return confirmed_spot
-    # handle exception related to length of stay
+    except KeyError:
+        return "Missing data.", 400  # Bad Request
     except InvalidSpotNumber:
         return "This is not a valid parking spot number.", 400  # Bad Request
     except SpotNotAvailable:
@@ -170,6 +182,10 @@ def park_car():
         return "This is not a valid license plate number.", 400  # Bad Request
     except VehicleAlreadyInOtherSpot:
         return "This license plate is already linked to another parking spot currently in use.", 403  # Forbidden
+    except InvalidLengthOfStay:
+        return "Invalid length of stay entered.", 400  # Bad Request
+    except TooLong:
+        return "A vehicle cannot occupy a spot for longer than a year.", 400  # Forbidden
 
 
 @app.route('/leave-parking-spot', methods=["POST"])
@@ -179,7 +195,6 @@ def free_up_spot():
     db_data = DBData()
     try:
         db_data.leave_parking_spot(incoming_data["license_plate"])
-        # add new method
         return "Parking spot now available.", 200  # OK
     except InvalidPlateNumber:
         return "This is not a valid license plate number.", 400  # Bad Request

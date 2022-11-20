@@ -40,3 +40,12 @@ class NotLoggedIn(Exception):
 
 class IncorrectPassword(Exception):
     pass
+
+
+class InvalidLengthOfStay(Exception):
+    pass
+
+
+class TooLong(Exception):
+    pass
+
