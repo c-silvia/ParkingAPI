@@ -34,11 +34,15 @@ class UserNotFound(Exception):
     pass
 
 
-class NotLoggedIn(Exception):
+class InvalidPassword(Exception):
     pass
 
 
-class IncorrectPassword(Exception):
+class InvalidEmail(Exception):
+    pass
+
+
+class InvalidUsername(Exception):
     pass
 
 
@@ -49,3 +53,14 @@ class InvalidLengthOfStay(Exception):
 class TooLong(Exception):
     pass
 
+
+class MissingData(Exception):
+    pass
+
+
+class UsernameAlreadyUsed(Exception):
+    pass
+
+
+class EmailAlreadyUsed(Exception):
+    pass

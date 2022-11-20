@@ -2,3 +2,4 @@ Flask
 Flask_Bcrypt
 mysql-connector-python
 flask-login
+APScheduler

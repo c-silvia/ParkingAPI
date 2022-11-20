@@ -4,8 +4,9 @@ from re import compile
 from datetime import datetime
 
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
-    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, DbConnectionError, UserNotFound, NotLoggedIn, \
-    IncorrectPassword, InvalidLengthOfStay, TooLong
+    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, DbConnectionError, UserNotFound, \
+    InvalidLengthOfStay, TooLong, MissingData, UsernameAlreadyUsed, EmailAlreadyUsed, InvalidUsername, InvalidEmail, \
+    InvalidPassword
 
 DB_NAME = "parking_app"
 
@@ -49,15 +50,46 @@ class DBClient:
 
 class DBUsers(DBClient):
 
+    @staticmethod
+    def check_if_username_valid(username):
+        username_format = compile(r'[A-Za-z\d]+')
+        return False if not username_format.match(username) else True
+
+    @staticmethod
+    def check_if_email_address_valid(email_address):
+        email_address_format = compile(r'[^@]+@[^@]+\.[^@]+')
+        return False if not email_address_format.match(email_address) else True
+
+    @staticmethod
+    def check_if_password_valid(password):
+        password_format = compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,10}$')
+        return False if not password_format.match(password) else True
+
     def create_user(self, username, email, hashed_password):
         with self.cnx.cursor() as cursor:
             query = "INSERT INTO login_data (username, email_address, password) VALUES (%s, %s, %s);"
             self._insertion_query(cursor, query, [username, email, hashed_password])
             self.cnx.commit()
 
-    def get_user_data(self, username):
+    def check_if_username_already_exists(self, username):
         with self.cnx.cursor() as cursor:
-            login_data_headers = ["user_id", "username", "email_address", "password"]
+            query = "SELECT EXISTS(SELECT * from login_data WHERE username = %s);"
+            matches = self._selection_query(cursor, query, [username])
+            name = "".join(
+                [str(username) for username in list(sum(matches, ())) if username != 0])  # fix syntax
+            return False if not name else True
+
+    def check_if_email_address_already_exists(self, email_address):
+        with self.cnx.cursor() as cursor:
+            query = "SELECT EXISTS(SELECT * from login_data WHERE email_address = %s);"
+            matches = self._selection_query(cursor, query, [email_address])
+            address = "".join(
+                [str(email_address) for email_address in list(sum(matches, ())) if email_address != 0])  # fix syntax
+            return False if not address else True
+
+    def get_user_data_from_username(self, username):
+        login_data_headers = ["user_id", "username", "email_address", "password"]
+        with self.cnx.cursor() as cursor:
             query = "SELECT user_id, username, email_address, password FROM login_data WHERE username = %s;"
             matches = self._selection_query(cursor, query, [username])
             if matches:
@@ -65,6 +97,20 @@ class DBUsers(DBClient):
                 user_data = dict(zip(login_data_headers, raw_values))
                 return user_data
             raise UserNotFound
+
+    def check_registration_input(self, username, email_address, password):
+        if not username or not email_address or not password:
+            raise MissingData
+        elif self.check_if_username_already_exists(username):
+            raise UsernameAlreadyUsed
+        elif self.check_if_email_address_already_exists(email_address):
+            raise EmailAlreadyUsed
+        elif not self.check_if_username_valid(username):
+            raise InvalidUsername
+        elif not self.check_if_email_address_valid(email_address):
+            raise InvalidEmail
+        elif not self.check_if_password_valid(password):
+            raise InvalidPassword
 
 
 class DBData(DBClient):
@@ -165,7 +211,6 @@ class DBData(DBClient):
             query = "UPDATE parking_spot_data SET vehicle_number = %s WHERE spot_id = %s;"
             self._insertion_query(cursor, query, [license_plate], [parking_spot])
             self.cnx.commit()
-            # returning spot where car has been parked in endpoint
 
     def store_parking_time(self, license_plate, arrival_time, length_of_stay, expected_departure_time, spot_id,
                            has_left, actual_departure_time, has_expired):
@@ -185,10 +230,11 @@ class DBData(DBClient):
                 raise InvalidPlateNumber
             parking_spot = self.get_spot_from_plate(license_plate)
             update_parking_spot_data_query = "UPDATE parking_spot_data SET vehicle_number = NULL WHERE spot_id = %s;"
-            update_parked_vehicles_data_query = "UPDATE parked_vehicles_data SET has_left = 1, has_expired = 1 WHERE " \
-                                                "vehicle_number = %s;"
+            actual_departure_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            update_parked_vehicles_data_query = "UPDATE parked_vehicles_data SET has_left = 1, actual_departure_time " \
+                                                "= %s  WHERE vehicle_number = %s and has_left = 0;"
             self._insertion_query(cursor, update_parking_spot_data_query, filter_values=[parking_spot])
-            self._insertion_query(cursor, update_parked_vehicles_data_query, filter_values=[license_plate])
+            self._insertion_query(cursor, update_parked_vehicles_data_query, [actual_departure_time], [license_plate])
             self.cnx.commit()
 
     def get_next_available_spot(self):
@@ -196,14 +242,26 @@ class DBData(DBClient):
             query = "SELECT spot_id, expected_departure_time FROM parked_vehicles_data WHERE has_left = 0;"
             matches = self._selection_query(cursor, query)
             if matches:
-                spots_and_departure_times = {pair[0]: pair[1] for pair in matches}
+                spots_and_departure_times = {spot_id: expected_departure_time for spot_id, expected_departure_time
+                                             in matches}
                 now = datetime.now()
                 next_available_spot = min(list(spots_and_departure_times.items()), key=lambda x: abs(x[1] - now))[0]
             else:
                 next_available_spot = self.get_vacant_spots()[0]
-            return next_available_spot  # fix syntax
+            return next_available_spot
 
-
+    def check_if_stay_expired(self):
+        with self.cnx.cursor() as cursor:
+            selection_query = "SELECT spot_id, expected_departure_time FROM parked_vehicles_data WHERE has_expired = 0;"
+            matches = self._selection_query(cursor, selection_query)
+            if matches:
+                now = datetime.now()
+                spots_and_departure_times = {spot_id: expected_departure_time for spot_id, expected_departure_time
+                                             in matches if now > expected_departure_time}
+                for parking_spot in spots_and_departure_times.keys():
+                    insertion_query = "UPDATE parked_vehicles_data SET has_expired = 1 WHERE spot_id = %s;"
+                    self._insertion_query(cursor, insertion_query, filter_values=[parking_spot])
+                self.cnx.commit()
 
 # def store_news_articles(news_articles_list):
 #     db_name = DB_NAME

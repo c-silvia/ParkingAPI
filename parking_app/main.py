@@ -1,20 +1,30 @@
 from flask import Flask, request, redirect, url_for, session, make_response
-from flask_login import LoginManager
 from datetime import datetime, timedelta
-from re import compile
-import json, os
+import json, os, atexit, re
+from apscheduler.schedulers.background import BackgroundScheduler
 from flask_bcrypt import Bcrypt
 from db import *  # update
 from auth import *  # update
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
-    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, NotLoggedIn, IncorrectPassword, \
-    InvalidLengthOfStay, TooLong
+    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, InvalidLengthOfStay, \
+    TooLong, MissingData, UsernameAlreadyUsed, EmailAlreadyUsed, InvalidUsername, InvalidEmail, InvalidPassword
 
 app = Flask(__name__)
 
 bcrypt = Bcrypt(app)
 app.secret_key = os.getenv("SECRET_KEY")
 
+
+def parking_expiration_checker():
+    db_data = DBData()
+    db_data.check_if_stay_expired()
+
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=parking_expiration_checker, trigger="interval", seconds=60)
+scheduler.start()
+
+atexit.register(lambda: scheduler.shutdown())
 
 # login_manager = LoginManager()
 # login_manager.init_app(app)
@@ -39,12 +49,7 @@ def index():
     return "Welcome to this parking app!"
 
 
-# check if data is filled in
-# check if username is alphanumeric, max length 255
-# check if email address is alphanumeric, max length 255, has @
-# check min password length, check it has at least a number, an upper case, a lower case, a symbol
 # hide password when typed
-# check if data is duplicate
 @app.route('/register', methods=["GET", "POST"])
 def create_user():
     incoming_data = request.get_json()
@@ -52,22 +57,23 @@ def create_user():
     try:
         username = incoming_data["username"]
         email_address = incoming_data["email_address"]
-        password = bcrypt.generate_password_hash(incoming_data["password"])
-        db_users.create_user(username, email_address, password)
+        password = incoming_data["password"]
+        db_users.check_registration_input(username, email_address, password)
+        db_users.create_user(username, email_address, bcrypt.generate_password_hash(password))
         return "User successfully created.", 200  # OK
-    except:
-        pass
-    # add other exceptions
-
-
-# @login_manager.user_loader
-# def load_user(user_id):
-#     db_users = DBUsers()
-#     try:
-#         user_data = db_users.get_user_data(user_id)
-#     except:
-#         return None
-#     return user_data
+    except MissingData:
+        return "Missing data.", 400  # Bad request
+    except UsernameAlreadyUsed:
+        return "This username is already linked to an existing user.", 403  # Forbidden
+    except EmailAlreadyUsed:
+        return "This email address is already linked to an existing user.", 403  # Forbidden
+    except InvalidUsername:
+        return "Username must contain characters and/or numbers.", 400  # Bad request
+    except InvalidEmail:
+        return "Invalid email address entered.", 400  # Bad request
+    except InvalidPassword:
+        return "Password must be between 8 and 10 characters, must contain at least one uppercase letter, " \
+               "one lowercase letter, one number and one special character.", 400  # Bad request
 
 
 # check if data is correct
@@ -79,7 +85,7 @@ def log_in():
     try:
         username = incoming_data["username"]
         password = incoming_data["password"]
-        user_data = db_users.get_user_data(username)
+        user_data = db_users.get_user_data_from_username(username)
         if bcrypt.check_password_hash(user_data["password"], password):
             session["login_success"] = True
             session["username"] = username  # what if multiple users are logged in
@@ -101,7 +107,7 @@ def log_out():
     # response = make_response("Successfully logged out.", 200)
     # response.set_cookie("LoginCookie", "", expires=0, httponly=True, secure=True)
     # return response
-    return "Successfully logged out.", 200
+    return "Successfully logged out.", 200  # OK
 
 
 # change to Json
