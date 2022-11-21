@@ -1,10 +1,10 @@
-from flask import Flask, request, redirect, url_for, session, make_response
-from datetime import timedelta
-import json, os, atexit
+from flask import Flask, request, session
+from functools import wraps
+import os
+import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_bcrypt import Bcrypt
-from db import *  # update
-from auth import *  # update
+from db import DBUsers, DBData
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
     InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, InvalidLengthOfStay, \
     TooLong, MissingData, UsernameAlreadyUsed, EmailAlreadyUsed, InvalidUsername, InvalidEmail, InvalidPassword
@@ -26,12 +26,6 @@ scheduler.start()
 
 atexit.register(lambda: scheduler.shutdown())
 
-
-# login_manager = LoginManager()
-# login_manager.init_app(app)
-
-
-# upper or lower everything
 
 def check_session(function):
     @wraps(function)
@@ -171,7 +165,7 @@ def park_car():
         license_plate = incoming_data["license_plate"]
         length_of_stay = incoming_data["length_of_stay"]
         db_data.check_incoming_values_before_parking(parking_spot, license_plate, length_of_stay)
-        arrival_time, departure_time = db_data.calculate_arrival_and_departure_time(length_of_stay)
+        arrival_time, departure_time = db_data.checker.calculate_arrival_and_departure_time(length_of_stay)
         db_data.park_car(parking_spot, license_plate)
         db_data.store_parking_time(license_plate, arrival_time, length_of_stay, departure_time, parking_spot, 0,
                                    None, 0)
@@ -179,7 +173,7 @@ def park_car():
         return confirmed_spot
     except TypeError:
         return "The parking spot and license plate should be a string of text. " \
-           "The length of stay should be a number written in the following format: 0.00"
+               "The length of stay should be a number written in the following format: 0.00"
     except KeyError:
         return "Missing data.", 400  # Bad Request
     except InvalidSpotNumber:

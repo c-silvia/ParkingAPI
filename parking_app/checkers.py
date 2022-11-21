@@ -7,7 +7,7 @@ class Checkers:
     @staticmethod
     def check_if_username_valid(username):
         username_format = compile(r'[A-Za-z\d]+')
-        return False if not username_format.match(username) else True
+        return False if not username_format.match(username) or username.lower() == 'username' else True
 
     @staticmethod
     def check_if_email_address_valid(email_address):
@@ -45,5 +45,5 @@ class Checkers:
 
     @staticmethod
     def check_if_length_of_stay_over_a_year(length_of_stay):
-        return False if length_of_stay > 8765.80 else True  # n of hours in a year
+        return False if length_of_stay > 8765.82 else True  # n of hours in a year
 
