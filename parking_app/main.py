@@ -170,17 +170,16 @@ def park_car():
         parking_spot = incoming_data["parking_spot"]
         license_plate = incoming_data["license_plate"]
         length_of_stay = incoming_data["length_of_stay"]
-        round_length_of_stay = db_data.check_incoming_values_before_parking(parking_spot, license_plate, length_of_stay)
-        # make function
-        arrival_time = datetime.now()
-        length_of_stay_hours, length_of_stay_minutes = round_length_of_stay.split(".")
-        selected_length_of_stay = timedelta(hours=int(length_of_stay_hours), minutes=int(length_of_stay_minutes))
-        departure_time = arrival_time + selected_length_of_stay
+        db_data.check_incoming_values_before_parking(parking_spot, license_plate, length_of_stay)
+        arrival_time, departure_time = db_data.calculate_arrival_and_departure_time(length_of_stay)
         db_data.park_car(parking_spot, license_plate)
-        db_data.store_parking_time(license_plate, arrival_time, round_length_of_stay, departure_time, parking_spot, 0,
+        db_data.store_parking_time(license_plate, arrival_time, length_of_stay, departure_time, parking_spot, 0,
                                    None, 0)
         confirmed_spot = db_data.get_spot_from_plate(incoming_data["license_plate"])
         return confirmed_spot
+    except TypeError:
+        return "The parking spot and license plate should be a string of text. " \
+           "The length of stay should be a number written in the following format: 0.00"
     except KeyError:
         return "Missing data.", 400  # Bad Request
     except InvalidSpotNumber:

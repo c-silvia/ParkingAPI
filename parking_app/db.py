@@ -1,7 +1,7 @@
 import os, mysql.connector, math
 from mysql.connector import IntegrityError
 from re import compile
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
     InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, DbConnectionError, UserNotFound, \
@@ -139,24 +139,38 @@ class DBData(DBClient):
     @staticmethod
     def _check_if_length_of_stay_valid(length_of_stay):
         length_of_stay_format = compile(r'^\d{1,4}\.\d{2}$')
-        return False if not length_of_stay_format.match(length_of_stay) else True
+        return False if not length_of_stay_format.match(str(length_of_stay)) else True
 
     @staticmethod
-    def _round_up_length_of_stay(length_of_stay):
-        if length_of_stay[-1] != 0:
-            rounded_up_length_of_stay = math.ceil(float(length_of_stay) * 10) / 10
-            return str(rounded_up_length_of_stay)
-        return length_of_stay
+    def parse_length_of_stay(length_of_stay):
+        length_of_stay_hours, length_of_stay_minutes = str(length_of_stay).split(".")
+        selected_length_of_stay = timedelta(hours=int(length_of_stay_hours), minutes=int(length_of_stay_minutes))
+        return selected_length_of_stay
+
+    def calculate_arrival_and_departure_time(self, length_of_stay):
+        arrival_time = datetime.now()
+        selected_length_of_stay = self.parse_length_of_stay(length_of_stay)
+        departure_time = arrival_time + selected_length_of_stay
+        return arrival_time, departure_time
+
+    # @staticmethod
+    # def _round_up_length_of_stay(length_of_stay):
+    #     if length_of_stay[-1] != 0:
+    #         rounded_up_length_of_stay = str(math.ceil(float(length_of_stay) * 10) / 10)
+    #         if rounded_up_length_of_stay[-1] != 0:
+    #             rounded_up_length_of_stay = rounded_up_length_of_stay + "0"
+    #         return rounded_up_length_of_stay
+    #     return length_of_stay
 
     @staticmethod
     def _check_if_length_of_stay_over_a_year(length_of_stay):
-        return False if float(length_of_stay) > 8765.80 else True  # n of hours in a year
+        return False if length_of_stay > 8765.80 else True  # n of hours in a year
 
     def check_incoming_values_before_parking(self, spot, plate, length_of_stay):
         if not self._check_if_length_of_stay_valid(length_of_stay):
             raise InvalidLengthOfStay
-        rounded_length_of_stay = self._round_up_length_of_stay(length_of_stay)
-        if not self._check_if_length_of_stay_over_a_year(rounded_length_of_stay):
+        # rounded_length_of_stay = self._round_up_length_of_stay(length_of_stay)
+        if not self._check_if_length_of_stay_over_a_year(length_of_stay):
             raise TooLong
         elif not self._check_if_spot_exists(spot):
             raise InvalidSpotNumber
@@ -169,7 +183,7 @@ class DBData(DBClient):
             raise VehicleAlreadyInOtherSpot
         except LicensePlateNotFound:
             pass
-        return rounded_length_of_stay
+        # return length_of_stay
 
     def get_vacant_spots(self):
         with self.cnx.cursor() as cursor:
@@ -218,7 +232,7 @@ class DBData(DBClient):
                     "VALUES (%s, %s, %s, %s, %s, %s, %s, %s);"
             incoming_data = [spot_id, license_plate, arrival_time.strftime("%Y-%m-%d %H:%M:%S"), length_of_stay,
                              expected_departure_time.strftime("%Y-%m-%d %H:%M:%S"), int(has_left),
-                             actual_departure_time.strftime("%Y-%m-%d %H:%M:%S"), int(has_expired)]
+                             actual_departure_time, int(has_expired)]
             self._insertion_query(cursor, query, incoming_data)
             self.cnx.commit()
 
