@@ -1,14 +1,12 @@
-import os, mysql.connector, math
-from mysql.connector import IntegrityError
-from re import compile
-from datetime import datetime, timedelta
+import os
+import mysql.connector
+from datetime import datetime
+from checkers import Checkers
 
 from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
-    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, DbConnectionError, UserNotFound, \
+    InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, \
     InvalidLengthOfStay, TooLong, MissingData, UsernameAlreadyUsed, EmailAlreadyUsed, InvalidUsername, InvalidEmail, \
     InvalidPassword
-
-DB_NAME = "parking_app"
 
 
 def _connect_to_db():
@@ -25,6 +23,7 @@ def _connect_to_db():
 class DBClient:
     def __init__(self):
         self.cnx = _connect_to_db()
+        self.checker = Checkers()
 
     @staticmethod
     def _selection_query(cursor, statement, lookup_value=None):
@@ -47,21 +46,6 @@ class DBClient:
 
 
 class DBUsers(DBClient):
-
-    @staticmethod
-    def check_if_username_valid(username):
-        username_format = compile(r'[A-Za-z\d]+')
-        return False if not username_format.match(username) else True
-
-    @staticmethod
-    def check_if_email_address_valid(email_address):
-        email_address_format = compile(r'[^@]+@[^@]+\.[^@]+')
-        return False if not email_address_format.match(email_address) else True
-
-    @staticmethod
-    def check_if_password_valid(password):
-        password_format = compile(r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,10}$')
-        return False if not password_format.match(password) else True
 
     def create_user(self, username, email, hashed_password):
         with self.cnx.cursor() as cursor:
@@ -103,22 +87,15 @@ class DBUsers(DBClient):
             raise UsernameAlreadyUsed
         elif self.check_if_email_address_already_exists(email_address):
             raise EmailAlreadyUsed
-        elif not self.check_if_username_valid(username):
+        elif not self.checker.check_if_username_valid(username):
             raise InvalidUsername
-        elif not self.check_if_email_address_valid(email_address):
+        elif not self.checker.check_if_email_address_valid(email_address):
             raise InvalidEmail
-        elif not self.check_if_password_valid(password):
+        elif not self.checker.check_if_password_valid(password):
             raise InvalidPassword
 
 
 class DBData(DBClient):
-
-    @staticmethod
-    def _check_if_license_plate_valid(plate_number):
-        license_plate_format = compile(r'^[A-Z\d]{1,3}-[A-Z\d]{1,3}-[A-Z\d]{1,3}$')
-        if len(plate_number) != 8 or not license_plate_format.match(plate_number) or not isinstance(plate_number, str):
-            return False
-        return True
 
     def _check_if_spot_exists(self, parking_spot):
         with self.cnx.cursor() as cursor:
@@ -136,54 +113,22 @@ class DBData(DBClient):
                 [parking_spot for parking_spot in list(sum(matches, ())) if parking_spot is not None])  # fix syntax
             return True if not spot else False
 
-    @staticmethod
-    def _check_if_length_of_stay_valid(length_of_stay):
-        length_of_stay_format = compile(r'^\d{1,4}\.\d{2}$')
-        return False if not length_of_stay_format.match(str(length_of_stay)) else True
-
-    @staticmethod
-    def parse_length_of_stay(length_of_stay):
-        length_of_stay_hours, length_of_stay_minutes = str(length_of_stay).split(".")
-        selected_length_of_stay = timedelta(hours=int(length_of_stay_hours), minutes=int(length_of_stay_minutes))
-        return selected_length_of_stay
-
-    def calculate_arrival_and_departure_time(self, length_of_stay):
-        arrival_time = datetime.now()
-        selected_length_of_stay = self.parse_length_of_stay(length_of_stay)
-        departure_time = arrival_time + selected_length_of_stay
-        return arrival_time, departure_time
-
-    # @staticmethod
-    # def _round_up_length_of_stay(length_of_stay):
-    #     if length_of_stay[-1] != 0:
-    #         rounded_up_length_of_stay = str(math.ceil(float(length_of_stay) * 10) / 10)
-    #         if rounded_up_length_of_stay[-1] != 0:
-    #             rounded_up_length_of_stay = rounded_up_length_of_stay + "0"
-    #         return rounded_up_length_of_stay
-    #     return length_of_stay
-
-    @staticmethod
-    def _check_if_length_of_stay_over_a_year(length_of_stay):
-        return False if length_of_stay > 8765.80 else True  # n of hours in a year
-
     def check_incoming_values_before_parking(self, spot, plate, length_of_stay):
-        if not self._check_if_length_of_stay_valid(length_of_stay):
+        if not self.checker.check_if_length_of_stay_valid(length_of_stay):
             raise InvalidLengthOfStay
-        # rounded_length_of_stay = self._round_up_length_of_stay(length_of_stay)
-        if not self._check_if_length_of_stay_over_a_year(length_of_stay):
+        if not self.checker.check_if_length_of_stay_over_a_year(length_of_stay):
             raise TooLong
         elif not self._check_if_spot_exists(spot):
             raise InvalidSpotNumber
         elif not self._check_if_spot_available(spot):
             raise SpotNotAvailable
-        elif not self._check_if_license_plate_valid(plate):
+        elif not self.checker.check_if_license_plate_valid(plate):
             raise InvalidPlateNumber
         try:
             self.get_spot_from_plate(plate)
             raise VehicleAlreadyInOtherSpot
         except LicensePlateNotFound:
             pass
-        # return length_of_stay
 
     def get_vacant_spots(self):
         with self.cnx.cursor() as cursor:
@@ -204,7 +149,7 @@ class DBData(DBClient):
             matches = self._selection_query(cursor, query, [license_plate])
             if matches:
                 return "".join([parking_spot for parking_spot in list(sum(matches, ()))])  # fix syntax
-            elif not self._check_if_license_plate_valid(license_plate):
+            elif not self.checker.check_if_license_plate_valid(license_plate):
                 raise InvalidPlateNumber
             raise LicensePlateNotFound
 
@@ -238,7 +183,7 @@ class DBData(DBClient):
 
     def leave_parking_spot(self, license_plate):
         with self.cnx.cursor() as cursor:
-            if not self._check_if_license_plate_valid(license_plate):
+            if not self.checker.check_if_license_plate_valid(license_plate):
                 raise InvalidPlateNumber
             parking_spot = self.get_spot_from_plate(license_plate)
             update_parking_spot_data_query = "UPDATE parking_spot_data SET vehicle_number = NULL WHERE spot_id = %s;"
@@ -274,27 +219,3 @@ class DBData(DBClient):
                     insertion_query = "UPDATE parked_vehicles_data SET has_expired = 1 WHERE spot_id = %s;"
                     self._insertion_query(cursor, insertion_query, filter_values=[parking_spot])
                 self.cnx.commit()
-
-# def store_news_articles(news_articles_list):
-#     db_name = DB_NAME
-#     db_connection = _connect_to_db()
-#     try:
-#         cur = db_connection.cursor()
-#         print("Connected to DB: %s" % db_name)
-#         with cur as cursor:
-#             for news_piece in news_articles_list:
-#                 try:
-#                     title = news_piece["title"]
-#                     article_url = news_piece["article_url"]
-#                     article_published_date = news_piece["article_published_date"]
-#                     sql_statement = "INSERT INTO news_articles (News_Title, News_URL, News_Date) VALUES (%s, %s, %s)"
-#                     sql_data = (title, article_url, article_published_date)
-#                     cursor.execute(sql_statement, sql_data)
-#                 except IntegrityError:
-#                     db_connection.rollback()
-#                     continue
-#         db_connection.commit()
-#     except DbConnectionError:
-#         raise
-#     finally:
-#         db_connection.close()

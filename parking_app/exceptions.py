@@ -1,7 +1,3 @@
-class DbConnectionError(Exception):
-    pass
-
-
 class LicensePlateNotFound(Exception):
     pass
 
