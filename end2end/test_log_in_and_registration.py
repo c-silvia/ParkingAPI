@@ -119,7 +119,7 @@ class Test01UserRegistration(TestCase):
 
 
 
-class TestDataRetrieval(TestCase):
+class Test03DataRetrieval(TestCase):
 
     def test_unauthorized_action_search_license_plate(self):
         license_plate = {"license_plate": "Z-810-TU"}
@@ -182,7 +182,7 @@ class TestDataRetrieval(TestCase):
         self.assertEqual(result.status_code, 200)
 
 
-class TestParkingAndLeaving(TestCase):
+class Test04ParkingAndLeaving(TestCase):
     def test_unauthorized_action_park_car(self):
         result = requests.post(root_address + "park-car")
         self.assertEqual(result.status_code, 403)
