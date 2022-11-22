@@ -169,8 +169,8 @@ def park_car():
         confirmed_spot = db_data.get_spot_from_plate(incoming_data["license_plate"])
         return confirmed_spot
     except TypeError:
-        return "The parking spot and license plate should be a string of text. " \
-               "The length of stay should be a string of text written in the following format: '0.00'."
+        return "The parking spot and license plate should be a string of text.\n" \
+               "The length of stay should be a string of text written in the following format: '0.00'.", 400
     except KeyError:
         return "Missing data.", 400
     except InvalidSpotNumber:
@@ -182,7 +182,7 @@ def park_car():
     except VehicleAlreadyInOtherSpot:
         return "This license plate is already linked to another parking spot currently in use.", 403
     except InvalidLengthOfStay:
-        return "Invalid length of stay entered. " \
+        return "Invalid length of stay entered.\n" \
                "The length of stay should be a string of text written in the following format: '0.00'.", 400
     except TooLong:
         return "A vehicle cannot occupy a spot for longer than a year.", 400

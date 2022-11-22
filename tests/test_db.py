@@ -351,6 +351,8 @@ class TestDBData(TestCase):
     def test_getting_next_available_spot(self, db_connector_function):
         db_data = DBData()
         cursor = MagicMock()
+        db_data._selection_query = MagicMock(side_effect=[[], [("A48", datetime.strptime("2022-11-28 08:25:46", "%Y-%m-%d %H:%M:%S")),
+                                        ("A100", datetime.strptime("2022-11-27 17:46:00", "%Y-%m-%d %H:%M:%S"))]])
         cursor.__iter__.return_value = [("A48", datetime.strptime("2022-11-28 08:25:46", "%Y-%m-%d %H:%M:%S")),
                                         ("A100", datetime.strptime("2022-11-27 17:46:00", "%Y-%m-%d %H:%M:%S"))]
         db_data.cnx.cursor.return_value.__enter__.return_value = cursor

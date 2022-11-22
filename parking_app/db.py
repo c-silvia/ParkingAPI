@@ -199,6 +199,12 @@ class DBData(DBClient):
 
     def get_next_available_spot(self):
         with self.cnx.cursor() as cursor:
+            try:
+                if self.get_vacant_spots():
+                    next_available_spot = self.get_vacant_spots()[0]
+                    return next_available_spot
+            except NoSpotsAvailable:
+                pass
             query = "SELECT spot_id, expected_departure_time FROM parked_vehicles_data WHERE has_left = 0;"
             matches = self._selection_query(cursor, query)
             if matches:
@@ -206,9 +212,7 @@ class DBData(DBClient):
                                              in matches}
                 now = datetime.now()
                 next_available_spot = min(list(spots_and_departure_times.items()), key=lambda x: abs(x[1] - now))[0]
-            else:
-                next_available_spot = self.get_vacant_spots()[0]
-            return next_available_spot
+                return next_available_spot
 
     def check_if_stay_expired(self):
         with self.cnx.cursor() as cursor:
