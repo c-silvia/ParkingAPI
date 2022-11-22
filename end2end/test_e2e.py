@@ -188,25 +188,25 @@ class Test04ParkingAndLeaving(TestCase):
         self.assertEqual(result.content.decode(), "Please log in to continue.")
 
     def test_unsuccessful_parking_missing_data(self):
-        parking_details = {"license_plate": "L-713-KQ", "length_of_stay": "1.23"}
+        parking_details = {"license_plate": "N-713-KQ", "length_of_stay": "1.23"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 400)
         self.assertEqual(result.text, "Missing data.")
 
     def test_unsuccessful_parking_invalid_spot_number_format(self):
-        parking_details = {"parking_spot": 48, "license_plate": "L-713-KQ", "length_of_stay": "1.23"}
+        parking_details = {"parking_spot": 48, "license_plate": "N-713-KQ", "length_of_stay": "1.23"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 400)
         self.assertEqual(result.text, "This is not a valid parking spot number.")
 
     def test_unsuccessful_parking_invalid_spot_number(self):
-        parking_details = {"parking_spot": "A108", "license_plate": "L-713-KQ", "length_of_stay": "1.23"}
+        parking_details = {"parking_spot": "A108", "license_plate": "N-713-KQ", "length_of_stay": "1.23"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 400)
         self.assertEqual(result.text, "This is not a valid parking spot number.")
 
     def test_unsuccessful_parking_unavailable_spot(self):
-        parking_details = {"parking_spot": "A01", "license_plate": "L-713-KQ", "length_of_stay": "1.23"}
+        parking_details = {"parking_spot": "A01", "license_plate": "N-713-KQ", "length_of_stay": "1.23"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 403)
         self.assertEqual(result.text, "The selected spot is currently not available.")
@@ -232,7 +232,7 @@ class Test04ParkingAndLeaving(TestCase):
         self.assertEqual(result.text, "This license plate is already linked to another parking spot currently in use.")
 
     def test_unsuccessful_parking_invalid_length_of_stay_type(self):
-        parking_details = {"parking_spot": "A48", "license_plate": "L-713-KQ", "length_of_stay": 1.23}
+        parking_details = {"parking_spot": "A48", "license_plate": "N-713-KQ", "length_of_stay": 1.23}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         type_error_content = "The parking spot and license plate should be a string of text.\n" \
                              "The length of stay should be a string of text written in the following format: '0.00'."
@@ -240,7 +240,7 @@ class Test04ParkingAndLeaving(TestCase):
         self.assertEqual(result.text, type_error_content)
 
     def test_unsuccessful_parking_invalid_length_of_stay(self):
-        parking_details = {"parking_spot": "A48", "license_plate": "L-713-KQ", "length_of_stay": "1.233"}
+        parking_details = {"parking_spot": "A48", "license_plate": "N-713-KQ", "length_of_stay": "1.233"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         invalid_length_content = "Invalid length of stay entered.\n" \
                                  "The length of stay should be a string of text written in the following format: " \
@@ -249,19 +249,19 @@ class Test04ParkingAndLeaving(TestCase):
         self.assertEqual(result.text, invalid_length_content)
 
     def test_unsuccessful_parking_too_long(self):
-        parking_details = {"parking_spot": "A48", "license_plate": "L-713-KQ", "length_of_stay": "9111.23"}
+        parking_details = {"parking_spot": "A48", "license_plate": "N-713-KQ", "length_of_stay": "9111.23"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 400)
         self.assertEqual(result.text, "A vehicle cannot occupy a spot for longer than a year.")
 
     def test_successful_parking(self):
-        parking_details = {"parking_spot": "A48", "license_plate": "L-713-KQ", "length_of_stay": "1.23"}
+        parking_details = {"parking_spot": "A48", "license_plate": "N-713-KQ", "length_of_stay": "1.23"}
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.text, "A48")
 
     def test_unauthorized_action_leave_parking_spot(self):
-        license_plate = {"license_plate": "L-713-KQ"}
+        license_plate = {"license_plate": "N-713-KQ"}
         result = requests.post(root_address + "leave-parking-spot", json=license_plate)
         self.assertEqual(result.status_code, 403)
         self.assertEqual(result.content.decode(), "Please log in to continue.")
@@ -280,7 +280,7 @@ class Test04ParkingAndLeaving(TestCase):
                                       "parking lot.")
 
     def test_successfully_leaving(self):
-        license_plate = {"license_plate": "L-713-KQ"}
+        license_plate = {"license_plate": "N-713-KQ"}
         result = requests.post(root_address + "leave-parking-spot", json=license_plate, cookies=cookies)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.text, "Parking spot now available.")
