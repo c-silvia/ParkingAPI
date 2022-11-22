@@ -3,3 +3,4 @@ Flask_Bcrypt
 mysql-connector-python
 flask-login
 APScheduler
+requests==2.28.1

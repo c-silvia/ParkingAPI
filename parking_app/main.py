@@ -53,21 +53,27 @@ def create_user():
         db_users.check_registration_input(username, email_address, password)
         db_users.create_user(username, email_address, bcrypt.generate_password_hash(password))
         return "User successfully created.", 200
+    except KeyError:
+        return "Missing data.", 400
     except MissingData:
         return "Missing data.", 400
     except TypeError:
-        return "The username, email address and password should be strings of text.", 400
+        return "The username, email address and password should be strings of text.\n" \
+               "Username text must contain characters and/or numbers.\n"\
+                "Password text must be between 8 and 10 characters, must contain at least one uppercase letter, " \
+               "one lowercase letter, one number and one special character.", 400
     except UsernameAlreadyUsed:
         return "This username is already linked to an existing user.", 403
     except EmailAlreadyUsed:
         return "This email address is already linked to an existing user.", 403
     except InvalidUsername:
-        return "Username must contain characters and/or numbers.", 400
+        return "The word 'username' cannot be used as username.", 400
     except InvalidEmail:
         return "Invalid email address entered.", 400
     except InvalidPassword:
         return "Password must be between 8 and 10 characters, must contain at least one uppercase letter, " \
-               "one lowercase letter, one number and one special character.", 400
+               "one lowercase letter, one number and one special character.\n" \
+               "The word 'password' cannot be used as a password.", 400
 
 
 @app.route('/log-in', methods=["GET", "POST"])
@@ -82,12 +88,13 @@ def log_in():
             session["login_success"] = True
             session["username"] = username
             return "Successfully logged in.", 200
+        return "Incorrect password entered.", 400
     except KeyError:
         return "Missing data.", 404
     except UserNotFound:
         return "User not found.", 404
-    except ValueError:
-        return "Incorrect password entered.", 400
+    # except ValueError:
+    #     return "Incorrect password entered.", 400
 
 
 @app.route('/log-out')
