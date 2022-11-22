@@ -6,7 +6,6 @@ from unittest.mock import patch, MagicMock
 import parking_app.db
 from parking_app.db import DBClient, DBUsers, DBData
 import parking_app.exceptions
-from parking_app.exceptions import UserNotFound
 
 
 @patch("parking_app.db._connect_to_db")  # mocking something from another file
@@ -36,13 +35,16 @@ class TestDBClient(TestCase):
         self.cursor.execute.assert_called_with("UPDATE table SET column=NULL", None)
 
 
-@patch("parking_app.db._connect_to_db")  # mocking something from another file
+@patch("parking_app.db._connect_to_db")
 class TestDBUsers(TestCase):
 
-    # def test_user_creation(self, db_connector_function):
-    #     db_user = DBUsers()
-    #     cursor = MagicMock()
-        # ("INSERT INTO login_data (username, email_address, password) "VALUES (%s, %s, %s);", ["a_username", "email@address.com", "Pa55wor!"])
+    def test_user_creation(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        db_user.create_user("Beethoven01", "address@email.com", "Pa55wor!")
+        cursor.execute.assert_called_with("INSERT INTO login_data (username, email_address, password) VALUES "
+                                          "(%s, %s, %s);", ["Beethoven01", "address@email.com", "Pa55wor!"])
 
     def test_check_for_existing_user_negative(self, db_connector_function):
         db_user = DBUsers()
@@ -68,7 +70,6 @@ class TestDBUsers(TestCase):
         result = db_user.check_if_email_address_already_exists("address@email.com")
         self.assertEqual(False, result)
 
-    # not working
     def test_check_for_existing_address_positive(self, db_connector_function):
         db_user = DBUsers()
         cursor = MagicMock()
@@ -80,12 +81,11 @@ class TestDBUsers(TestCase):
     def test_getting_user_data_from_username_negative(self, db_connector_function):
         db_user = DBUsers()
         cursor = MagicMock()
-        cursor.__iter__.return_value = [()]
+        cursor.__iter__.return_value = []
         db_user.cnx.cursor.return_value.__enter__.return_value = cursor
         with self.assertRaises(parking_app.exceptions.UserNotFound):
             db_user.get_user_data_from_username("Beethoven01")
 
-    # not working
     def test_getting_user_data_from_username_positive(self, db_connector_function):
         db_user = DBUsers()
         cursor = MagicMock()
@@ -95,6 +95,70 @@ class TestDBUsers(TestCase):
         self.assertEqual(
             {"user_id": 1, "username": "Beethoven01", "email_address": "address@email.com", "password": "Pa55wor!"},
             result)
+
+    def test_registration_input_missing_data(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.MissingData):
+            db_user.check_registration_input("Beethoven01", "address@email.com", None)
+
+    def test_registration_input_same_username(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [("Beethoven01", "address@email.com", "Pa55wor!")]
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.UsernameAlreadyUsed):
+            db_user.check_registration_input("Beethoven01", "address@email.com", "Pa55wor!")
+
+    def test_registration_input_same_email(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        cursor.__iter__.return_value = [("Beethoven01", "address@email.com", "Pa55wor!")]
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.UsernameAlreadyUsed):
+            db_user.check_registration_input("Beethoven01", "address@email.com", "Pa55wor!")
+
+    def test_registration_input_invalid_username(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.InvalidUsername):
+            db_user.check_registration_input("username", "address@email.com", "Pa55wor!")
+
+    def test_registration_input_invalid_username_format(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(TypeError):
+            db_user.check_registration_input(111, "address@email.com", "Pa55wor!")
+
+    def test_registration_input_invalid_email_address(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.InvalidEmail):
+            db_user.check_registration_input("Beethoven01", "addressatemaildotcom", "Pa55wor!")
+
+    def test_registration_input_invalid_password(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.InvalidPassword):
+            db_user.check_registration_input("Beethoven01", "address@email.com", "password")
+
+    def test_registration_input_short_password(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        with self.assertRaises(parking_app.exceptions.InvalidPassword):
+            db_user.check_registration_input("Beethoven01", "address@email.com", "Pa5!")
+
+    def test_correct_registration_input(self, db_connector_function):
+        db_user = DBUsers()
+        cursor = MagicMock()
+        db_user.cnx.cursor.return_value.__enter__.return_value = cursor
+        db_user.check_registration_input("Beethoven01", "address@email.com", "Pa55wor!")
 
 
 class TestDBData(TestCase):
