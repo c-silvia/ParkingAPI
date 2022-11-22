@@ -110,13 +110,12 @@ class Test01UserRegistration(TestCase):
                                    "The word 'password' cannot be used as a password."
         self.assertEqual(result.content.decode(), invalid_password_content)
 
-    def test_successful_registration_02(self):
+    def test_successful_registration(self):
         registration_details = {"username": "Beethoven01", "email_address": "beethoven01@test.dummy.com",
                                 "password": "Pa55wor!2"}
         result = requests.post(root_address + "register", json=registration_details)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.content.decode(), "User successfully created.")
-
 
 
 class Test03DataRetrieval(TestCase):

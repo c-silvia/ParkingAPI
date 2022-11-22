@@ -181,3 +181,8 @@ VALUES
 ("A89","J-611-SI","2022-11-18 01:07:25",86.17,"2022-11-21 15:24:25",0,NULL,0),
 ("A93","A-113-HG","2022-11-18 15:47:23",106.45,"2022-11-23 02:32:23",0,NULL,0),
 ("A99","P-333-MW","2022-11-18 18:51:38",76.47,"2022-11-21 23:38:38",0,NULL,0);
+
+INSERT INTO login_data
+(username, email_address, password)
+VALUES
+("testuser", "testuser@test.dummy.com", "$2b$12$sT7kaXPkYI7YFVxkdworCORaZAI1xLa.3p30VIodr8K/FkeZ17HEi");

@@ -7,11 +7,11 @@ from parking_app.db import DBClient, DBUsers, DBData
 import parking_app.exceptions
 
 
-@patch("parking_app.db._connect_to_db")  # mocking something from another file
+@patch("parking_app.db._connect_to_db")
 class TestDBClient(TestCase):
 
     def setUp(self):
-        self.cursor = MagicMock()  # mocking something to pass to a function
+        self.cursor = MagicMock()
 
     def test_selection_query(self, db_connector_function):
         db_client = DBClient()
