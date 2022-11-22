@@ -31,10 +31,10 @@ class DBClient:
             cursor.execute(statement, lookup_value)
         else:
             cursor.execute(statement)
-        matches = [match for match in cursor]  # fix formatting
+        matches = [match for match in cursor]
         return matches
 
-    @staticmethod  # check
+    @staticmethod
     def _insertion_query(cursor, statement, input_values=None, filter_values=None):
         sql_data = None
         if input_values and filter_values:
@@ -61,7 +61,7 @@ class DBUsers(DBClient):
             query = "SELECT EXISTS(SELECT * from login_data WHERE username = %s);"
             matches = self._selection_query(cursor, query, [username])
             name = "".join(
-                [str(username) for username in list(sum(matches, ())) if username != 0])  # fix syntax
+                [str(username) for username in list(sum(matches, ())) if username != 0])
             return False if not name else True
 
     def check_if_email_address_already_exists(self, email_address):
@@ -69,7 +69,7 @@ class DBUsers(DBClient):
             query = "SELECT EXISTS(SELECT * from login_data WHERE email_address = %s);"
             matches = self._selection_query(cursor, query, [email_address])
             address = "".join(
-                [str(email_address) for email_address in list(sum(matches, ())) if email_address != 0])  # fix syntax
+                [str(email_address) for email_address in list(sum(matches, ())) if email_address != 0])
             return False if not address else True
 
     def get_user_data_from_username(self, username):
@@ -78,7 +78,7 @@ class DBUsers(DBClient):
             query = "SELECT user_id, username, email_address, password FROM login_data WHERE username = %s;"
             matches = self._selection_query(cursor, query, [username])
             if matches:
-                raw_values = [value for value in list(sum(matches, ()))]  # fix syntax
+                raw_values = [value for value in list(sum(matches, ()))]
                 user_data = dict(zip(login_data_headers, raw_values))
                 return user_data
             raise UserNotFound
@@ -105,7 +105,7 @@ class DBData(DBClient):
             query = "SELECT EXISTS(SELECT * from parking_spot_data WHERE spot_id = %s);"
             matches = self._selection_query(cursor, query, [parking_spot])
             spot = "".join(
-                [str(parking_spot) for parking_spot in list(sum(matches, ())) if parking_spot != 0])  # fix syntax
+                [str(parking_spot) for parking_spot in list(sum(matches, ())) if parking_spot != 0])
             return False if not spot else True
 
     def _check_if_spot_available(self, parking_spot):
@@ -113,7 +113,7 @@ class DBData(DBClient):
             query = "SELECT vehicle_number FROM parking_spot_data WHERE spot_id = %s;"
             matches = self._selection_query(cursor, query, [parking_spot])
             spot = "".join(
-                [parking_spot for parking_spot in list(sum(matches, ())) if parking_spot is not None])  # fix syntax
+                [parking_spot for parking_spot in list(sum(matches, ())) if parking_spot is not None])
             return True if not spot else False
 
     def check_incoming_values_before_parking(self, spot, plate, length_of_stay):
@@ -138,7 +138,7 @@ class DBData(DBClient):
             query = "SELECT spot_id FROM parking_spot_data WHERE vehicle_number IS NULL ORDER BY spot_id;"
             matches = self._selection_query(cursor, query)
             if matches:
-                vacant_spots = list(sum(matches, ()))  # fix syntax
+                vacant_spots = list(sum(matches, ()))
                 return vacant_spots
             raise NoSpotsAvailable
 
@@ -151,7 +151,7 @@ class DBData(DBClient):
             query = "SELECT spot_id FROM parking_spot_data WHERE vehicle_number = %s;"
             matches = self._selection_query(cursor, query, [license_plate])
             if matches:
-                return "".join([parking_spot for parking_spot in list(sum(matches, ()))])  # fix syntax
+                return "".join([parking_spot for parking_spot in list(sum(matches, ()))])
             elif not self.checker.check_if_license_plate_valid(license_plate):
                 raise InvalidPlateNumber
             raise LicensePlateNotFound

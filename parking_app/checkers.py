@@ -20,7 +20,7 @@ class Checkers:
         return False if not password_format.match(password) or password.lower() == "password" else True
 
     @staticmethod
-    def check_if_license_plate_valid(plate_number):  # update regex
+    def check_if_license_plate_valid(plate_number):
         license_plate_format = compile(r'^[A-Z\d]{1,3}-[A-Z\d]{1,3}-[A-Z\d]{1,3}$')
         return False if len(plate_number) != 8 or not license_plate_format.match(plate_number) or not \
             isinstance(plate_number, str) else True
@@ -44,4 +44,4 @@ class Checkers:
 
     @staticmethod
     def check_if_length_of_stay_over_a_year(length_of_stay):
-        return False if float(length_of_stay) > 8765.82 else True  # n of hours in a year
+        return False if float(length_of_stay) > 8765.82 else True

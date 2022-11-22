@@ -31,9 +31,7 @@ def check_session(function):
     @wraps(function)
     def wrapper(*args, **kwargs):
         if not session.get("login_success") or not session.get("username"):
-            return "Please log in to continue.", 403  # Forbidden
-        # if not request.cookies.get("LoginCookie", None):
-        #     return "Please log in to continue.", 403
+            return "Please log in to continue.", 403
         return function(*args, **kwargs)
 
     return wrapper
@@ -44,7 +42,6 @@ def index():
     return "Welcome to this parking app!"
 
 
-# hide password when typed
 @app.route('/register', methods=["GET", "POST"])
 def create_user():
     incoming_data = request.get_json()
@@ -73,7 +70,6 @@ def create_user():
                "one lowercase letter, one number and one special character.", 400
 
 
-# if logged in don't do it again
 @app.route('/log-in', methods=["GET", "POST"])
 def log_in():
     incoming_data = request.get_json()
@@ -84,10 +80,7 @@ def log_in():
         user_data = db_users.get_user_data_from_username(username)
         if bcrypt.check_password_hash(user_data["password"], password):
             session["login_success"] = True
-            session["username"] = username  # what if multiple users are logged in
-            # response = make_response("Successfully logged in.", 200)
-            # response.set_cookie("LoginCookie", username, secure=True, httponly=True)
-            # return response  # OK
+            session["username"] = username
             return "Successfully logged in.", 200
     except KeyError:
         return "Missing data.", 404
@@ -102,9 +95,6 @@ def log_in():
 def log_out():
     session.pop("login_success", None)
     session.pop("username", None)
-    # response = make_response("Successfully logged out.", 200)
-    # response.set_cookie("LoginCookie", "", expires=0, httponly=True, secure=True)
-    # return response
     return "Successfully logged out.", 200
 
 
