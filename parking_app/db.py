@@ -1,9 +1,9 @@
 import os
 import mysql.connector
 from datetime import datetime
-from checkers import Checkers
+from parking_app.checkers import Checkers
 
-from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
+from parking_app.exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
     InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, \
     InvalidLengthOfStay, TooLong, MissingData, UsernameAlreadyUsed, EmailAlreadyUsed, InvalidUsername, InvalidEmail, \
     InvalidPassword
@@ -34,14 +34,17 @@ class DBClient:
         matches = [match for match in cursor]  # fix formatting
         return matches
 
-    @staticmethod
+    @staticmethod  # check
     def _insertion_query(cursor, statement, input_values=None, filter_values=None):
+        sql_data = None
         if input_values and filter_values:
             sql_data = input_values + filter_values
         elif input_values and not filter_values:
             sql_data = input_values
-        else:
+        elif not input_values and filter_values:
             sql_data = filter_values
+        else:
+            cursor.execute(statement)
         cursor.execute(statement, sql_data)
 
 

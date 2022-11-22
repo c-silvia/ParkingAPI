@@ -4,8 +4,8 @@ import os
 import atexit
 from apscheduler.schedulers.background import BackgroundScheduler
 from flask_bcrypt import Bcrypt
-from db import DBUsers, DBData
-from exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
+from parking_app.db import DBUsers, DBData
+from parking_app.exceptions import NoSpotsAvailable, InvalidPlateNumber, LicensePlateNotFound, AllSpotsAvailable, \
     InvalidSpotNumber, SpotNotAvailable, VehicleAlreadyInOtherSpot, UserNotFound, InvalidLengthOfStay, \
     TooLong, MissingData, UsernameAlreadyUsed, EmailAlreadyUsed, InvalidUsername, InvalidEmail, InvalidPassword
 
