@@ -172,7 +172,7 @@ class DBData(DBClient):
             self._insertion_query(cursor, query, [license_plate], [parking_spot])
             self.cnx.commit()
 
-    def store_parking_time(self, license_plate, arrival_time, length_of_stay, expected_departure_time, spot_id,
+    def store_parking_time(self, spot_id, license_plate, arrival_time, length_of_stay, expected_departure_time,
                            has_left, actual_departure_time, has_expired):
         with self.cnx.cursor() as cursor:
             query = "INSERT INTO parked_vehicles_data (spot_id, vehicle_number, arrival_time, " \

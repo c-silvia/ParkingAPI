@@ -167,7 +167,7 @@ def park_car():
         db_data.check_incoming_values_before_parking(parking_spot, license_plate, length_of_stay)
         arrival_time, departure_time = db_data.checker.calculate_arrival_and_departure_time(length_of_stay)
         db_data.park_car(parking_spot, license_plate)
-        db_data.store_parking_time(license_plate, arrival_time, length_of_stay, departure_time, parking_spot, 0,
+        db_data.store_parking_time(parking_spot, license_plate, arrival_time, length_of_stay, departure_time, 0,
                                    None, 0)
         confirmed_spot = db_data.get_spot_from_plate(incoming_data["license_plate"])
         return confirmed_spot
