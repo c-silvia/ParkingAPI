@@ -93,8 +93,6 @@ def log_in():
         return "Missing data.", 404
     except UserNotFound:
         return "User not found.", 404
-    # except ValueError:
-    #     return "Incorrect password entered.", 400
 
 
 @app.route('/log-out')
@@ -149,7 +147,7 @@ def retrieve_unavailable_spots_and_plates():
         unavailable_spots_and_plates = db_data.get_unavailable_spots_and_plates()
         return unavailable_spots_and_plates, 200
     except AllSpotsAvailable:
-        return "All parking spots are currently available", 404
+        return "All parking spots are currently available.", 404
 
 
 @app.route('/park-car', methods=["POST"])

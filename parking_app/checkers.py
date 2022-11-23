@@ -27,7 +27,7 @@ class Checkers:
 
     @staticmethod
     def check_if_length_of_stay_valid(length_of_stay):
-        length_of_stay_format = compile(r'^\d{1,4}\.\d{2}$')
+        length_of_stay_format = compile(r'^\d{1,4}\.[0-5]\d$')
         return False if not length_of_stay_format.match(length_of_stay) else True
 
     @staticmethod
