@@ -212,13 +212,13 @@ def check_next_available_spot():
 @check_session
 def park_at_next_available_spot():
     db_data = DBData()
-    incoming_data = request.get_json()
     next_available_spot = db_data.get_next_available_spot()
     try:
         db_data.get_vacant_spots()
     except NoSpotsAvailable:
         return f"There are currently no spots available. Spot {next_available_spot} will become available soon. " \
                f"Please try again later.", 403
+    incoming_data = request.get_json()
     incoming_data.update(parking_spot=next_available_spot)
     return park_car()
 
