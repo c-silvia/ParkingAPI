@@ -176,7 +176,7 @@ class Test03DataRetrieval(TestCase):
         self.assertEqual(result.status_code, 403)
         self.assertEqual(result.content.decode(), "Please log in to continue.")
 
-    def test_getting_unavailable_check_next_available_spot(self):
+    def test_getting_next_available_spot(self):
         result = requests.get(root_address + "next-available-spot", cookies=cookies)
         self.assertEqual(result.status_code, 200)
 
@@ -259,6 +259,16 @@ class Test04ParkingAndLeaving(TestCase):
         result = requests.post(root_address + "park-car", json=parking_details, cookies=cookies)
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.text, "A48")
+
+    def test_unauthorized_action_park_car_at_next_available_spot(self):
+        result = requests.post(root_address + "park-at-next-available-spot")
+        self.assertEqual(result.status_code, 403)
+        self.assertEqual(result.content.decode(), "Please log in to continue.")
+
+    def test_successful_parking_at_next_available_spot(self):
+        parking_details = {"license_plate": "Q-495-DL", "length_of_stay": "1.23"}
+        result = requests.post(root_address + "park-at-next-available-spot", json=parking_details, cookies=cookies)
+        self.assertEqual(result.status_code, 200)
 
     def test_unauthorized_action_leave_parking_spot(self):
         license_plate = {"license_plate": "N-713-KQ"}

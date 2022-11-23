@@ -58,6 +58,12 @@ To interact with the app, execute `curl` commands in the terminal. For instance:
 
 `curl -b cookies.txt -X POST -H "Content-Type: application/json" localhost:5000/park-car -d '{"parking_spot":"A48","license_plate":"L-713-KQ", "length_of_stay": "1.23"}'`
 
+**Park a vehicle at the next available spot without having to specify the spot number**
+
+Please note: should no spots be available, an error message will be returned, with information on which spot will become available next.
+
+`curl -b cookies.txt -X POST -H "Content-Type: application/json" localhost:5000/park-at-next-available-spot -d '{"license_plate":"N-184-NS", "length_of_stay": "4.55"}'`
+
 **Leave a parking spot:**
 
 `curl -b cookies.txt -X POST -H "Content-Type: application/json" localhost:5000/leave-parking-spot -d '{"license_plate":"K-452-BM"}'`

@@ -59,8 +59,8 @@ def create_user():
         return "Missing data.", 400
     except TypeError:
         return "The username, email address and password should be strings of text.\n" \
-               "Username text must contain characters and/or numbers.\n"\
-                "Password text must be between 8 and 10 characters, must contain at least one uppercase letter, " \
+               "Username text must contain characters and/or numbers.\n" \
+               "Password text must be between 8 and 10 characters, must contain at least one uppercase letter, " \
                "one lowercase letter, one number and one special character.", 400
     except UsernameAlreadyUsed:
         return "This username is already linked to an existing user.", 403
@@ -206,6 +206,21 @@ def check_next_available_spot():
     db_data = DBData()
     db_data.get_next_available_spot()
     return db_data.get_next_available_spot(), 200
+
+
+@app.route('/park-at-next-available-spot', methods=["GET", "POST"])
+@check_session
+def park_at_next_available_spot():
+    db_data = DBData()
+    incoming_data = request.get_json()
+    next_available_spot = db_data.get_next_available_spot()
+    try:
+        db_data.get_vacant_spots()
+    except NoSpotsAvailable:
+        return f"There are currently no spots available. Spot {next_available_spot} will become available soon. " \
+               f"Please try again later.", 403
+    incoming_data.update(parking_spot=next_available_spot)
+    return park_car()
 
 
 if __name__ == '__main__':
