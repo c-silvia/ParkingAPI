@@ -82,3 +82,6 @@ To run the tests available at `[PROJECT_ROOT]\tests`, export the PYTHONPATH to t
 
 `pytest tests`
 
+# **Author**
+
+Silvia Caponio
